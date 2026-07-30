@@ -87,18 +87,23 @@ async def _execute_job(job: dict) -> None:
         await _notify(chat_id, message_id, "❌ هیچ پروکسی فعالی وجود ندارد.\nمالک باید پروکسی اضافه کند.")
         return
 
-    views_per_open = Config.VIEWS_PER_OPEN
-    opens_needed = max(1, total_views // views_per_open)
+    # هر call از یه IP مجزا = یه ویو واقعی
+    # opens_needed == total_views — سقف واقعی تعداد پروکسی‌هاست
+    opens_needed = total_views
+    available = len(proxies)
+    if opens_needed > available:
+        opens_needed = available
+
     views_done = 0
     success = 0
     failed = 0
 
     for i in range(opens_needed):
-        proxy = proxies[i % len(proxies)]
+        proxy = proxies[i % available]
         ok = await _open_with_proxy(proxy, channel, msg_id)
         if ok:
             success += 1
-            views_done += views_per_open
+            views_done += 1
         else:
             failed += 1
 
@@ -110,21 +115,27 @@ async def _execute_job(job: dict) -> None:
                 f"⚙️ **در حال اجرا...**\n\n"
                 f"🔗 `{post_link}`\n"
                 f"✅ باز شده: {i+1}/{opens_needed}\n"
-                f"👁 ویو ارسالی: ~{views_done}\n"
+                f"👁 ویو ارسالی: {views_done}\n"
                 f"❌ خطا: {failed}"
             )
 
         if i < opens_needed - 1:
             await asyncio.sleep(Config.VIEW_DELAY_SECONDS)
 
+    # اگه پروکسی کمتر از درخواست بود، به کاربر بگو
+    note = ""
+    if available < total_views:
+        note = f"\n\n⚠️ فقط {available} پروکسی فعال داشتیم — {total_views - available} ویو کم موند."
+
     await finish_job(job_id, views_done)
     await _notify(
         chat_id, message_id,
         f"✅ **عملیات کامل شد!**\n\n"
         f"🔗 `{post_link}`\n"
-        f"👁 ویو ارسالی: ~{views_done}\n"
+        f"👁 ویو ارسالی: {views_done}\n"
         f"✅ موفق: {success} بار\n"
         f"❌ خطا: {failed} بار"
+        f"{note}"
     )
 
 # ── Notify back through bot ───────────────────────────────────────────────────
