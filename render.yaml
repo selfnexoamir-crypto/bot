@@ -3,19 +3,21 @@ services:
     name: axiom-viewbot
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: python bot.py
+    startCommand: python main.py
     envVars:
+      - key: BOT_TOKEN
+        sync: false
       - key: TELEGRAM_API_ID
         sync: false
       - key: TELEGRAM_API_HASH
         sync: false
       - key: TELEGRAM_SESSION_STRING
         sync: false
-      - key: ADMIN_USER_ID
+      - key: OWNER_USER_ID
         sync: false
       - key: VIEW_DELAY_SECONDS
-        value: "60"
+        value: "3"
+      - key: VIEWS_PER_OPEN
+        value: "20"
       - key: PROXY_TIMEOUT
         value: "10"
-      - key: MAX_PROXIES
-        value: "50"

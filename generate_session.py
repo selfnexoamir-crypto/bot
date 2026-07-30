@@ -1,19 +1,19 @@
 """
-Run this script locally with your API credentials to generate a Telethon session string.
-Paste the output into TELEGRAM_SESSION_STRING in Render environment settings.
-Never run this on Render directly.
+یک بار روی سیستم لوکال اجرا کنید.
+خروجی را در Render به عنوان TELEGRAM_SESSION_STRING وارد کنید.
+هرگز روی سرور اجرا نکنید.
 """
 import asyncio
 from telethon import TelegramClient
 from telethon.sessions import StringSession
 
-API_ID = int(input("API_ID:"))
-API_HASH = input("API_HASH:").strip()
+API_ID = int(input("API_ID: "))
+API_HASH = input("API_HASH: ").strip()
 
 async def gen():
     client = TelegramClient(StringSession(), API_ID, API_HASH)
     await client.start()
-    print("\nSession string (paste into Render TELEGRAM_SESSION_STRING):")
+    print("\n✅ Session String (در Render وارد کنید):")
     print(client.session.save())
     await client.disconnect()
 

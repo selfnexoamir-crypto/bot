@@ -1,102 +1,93 @@
-# Axiom ViewBot
+# Axiom ViewBot — معماری دو لایه
 
-Telegram self-bot for automated post view generation via proxy rotation.
-Built on Telethon (MTProto), deployed as a Render worker service.
+## معماری
+```
+کاربر تلگرام
+     ↓
+[Bot API — aiogram]          ← رابط کاربری، inline keyboards، FSM
+     ↓ push_job()
+[job_queue.json]             ← صف مشترک بین دو لایه
+     ↓ get_pending_job()
+[Telethon Worker]            ← فقط اجرا می‌کنه، ویو می‌زنه
+     ↓ edit_message_text()
+[Bot API — progress update]  ← نتیجه رو به کاربر برمی‌گردونه
+```
 
----
+## ساختار فایل‌ها
+```
+axiom-viewbot/
+├── main.py                  # entry point — bot + worker موازی
+├── config.py                # متغیرهای محیطی
+├── worker.py                # Telethon self-bot، اجرای job
+├── job_queue.py             # صف job بین bot و worker
+├── proxy_manager.py         # مدیریت پروکسی
+├── keyboards.py             # همه inline keyboard ها
+├── states.py                # FSM states (aiogram)
+├── handlers/
+│   ├── __init__.py
+│   ├── start.py             # /start، /menu، /panel
+│   ├── view.py              # فلوی کامل ویو گرفتن
+│   ├── services.py          # ری‌اکشن، ممبر، لایک (placeholder)
+│   └── owner.py             # مدیریت پروکسی + جاب‌ها
+├── generate_session.py      # یک بار لوکال اجرا کنید
+├── render.yaml
+└── requirements.txt
+```
 
-## Setup
+## راه‌اندازی
 
-### 1. Get Telegram API credentials
-Go to https://my.telegram.org → App Configuration → copy `API_ID` and `API_HASH`.
+### ۱. ساخت ربات در BotFather
+```
+به @BotFather پیام دهید
+/newbot
+نام ربات را وارد کنید
+توکن را کپی کنید → BOT_TOKEN
+```
 
-### 2. Generate session string (local, once)
+### ۲. API Credentials تلگرام
+به my.telegram.org بروید → App Configuration
+`API_ID` و `API_HASH` را کپی کنید.
+
+### ۳. Session String (لوکال، یک بار)
 ```bash
 pip install telethon
 python generate_session.py
 ```
-Paste the output string into Render as `TELEGRAM_SESSION_STRING`. Never commit it.
+خروجی = `TELEGRAM_SESSION_STRING`
 
-### 3. Find your Telegram user ID
-Message `@userinfobot` on Telegram. Copy the numeric ID into `ADMIN_USER_ID`.
+### ۴. OWNER_USER_ID
+به @userinfobot پیام دهید → عدد را کپی کنید.
 
-### 4. Deploy to Render
-- Create a new **Worker** service (not Web Service — no port needed)
-- Connect your repo or upload files
-- Set environment variables (see below)
-- Build command: `pip install -r requirements.txt`
-- Start command: `python bot.py`
+### ۵. Render — Worker Service
+- New → Background Worker
+- Start Command: `python main.py`
+- Build Command: `pip install -r requirements.txt`
 
----
+## متغیرهای محیطی Render
 
-## Environment Variables (Render)
+| متغیر | اجباری | توضیح |
+|---|---|---|
+| `BOT_TOKEN` | ✅ | از BotFather |
+| `TELEGRAM_API_ID` | ✅ | از my.telegram.org |
+| `TELEGRAM_API_HASH` | ✅ | از my.telegram.org |
+| `TELEGRAM_SESSION_STRING` | ✅ | از generate_session.py |
+| `OWNER_USER_ID` | ✅ | آیدی عددی مالک |
+| `VIEW_DELAY_SECONDS` | ❌ | پیش‌فرض: 3 |
+| `VIEWS_PER_OPEN` | ❌ | پیش‌فرض: 20 |
+| `PROXY_TIMEOUT` | ❌ | پیش‌فرض: 10 |
 
-| Variable | Required | Default | Description |
-|---|---|---|---|
-| `TELEGRAM_API_ID` | ✅ | — | From my.telegram.org |
-| `TELEGRAM_API_HASH` | ✅ | — | From my.telegram.org |
-| `TELEGRAM_SESSION_STRING` | ✅ | — | Output of generate_session.py |
-| `ADMIN_USER_ID` | ✅ | — | Your numeric Telegram user ID |
-| `VIEW_DELAY_SECONDS` | ❌ | 60 | Seconds between each view |
-| `PROXY_TIMEOUT` | ❌ | 10 | Proxy validation timeout (seconds) |
-| `MAX_PROXIES` | ❌ | 50 | Max proxies in pool |
+## دستورات ربات
 
----
+### همه کاربران
+- `/start` — منوی اصلی با دکمه‌های سرویس
+- `/menu` — منوی اصلی
 
-## Commands
+### فقط مالک
+- `/panel` — پنل مدیریت پروکسی
 
-### Admin only
-| Command | Description |
-|---|---|
-| `/addproxy <host> <port> [type] [user] [pass]` | Add a proxy (type: socks5/socks4/http) |
-| `/removeproxy <host> <port>` | Remove a proxy |
-| `/listproxies` | List all proxies with status |
-| `/validateproxies` | Test all proxies live |
-| `/resetproxies` | Re-enable all disabled proxies |
-
-### All users
-| Command | Description |
-|---|---|
-| `/view <post_link> <count>` | Generate N views (max 500) |
-| `/status` | Proxy pool stats |
-| `/help` | Command list |
-| `/start` | Show role and help |
-
----
-
-## Proxy Format Examples
+## فرمت پروکسی (از پنل مالک)
 ```
-/addproxy 192.168.1.1 1080 socks5
-/addproxy 192.168.1.2 1080 socks5 myuser mypass
-/addproxy 192.168.1.3 8080 http
-```
-
----
-
-## Post Link Formats
-```
-https://t.me/channelname/123
-https://t.me/c/1234567890/123   ← private channels
-```
-
----
-
-## Proxy Persistence Note
-Proxies are stored in `/tmp/proxies.json`. This resets on Render redeploy.
-For persistent storage, replace `_load_raw`/`_save_raw` in `proxy_manager.py`
-with a Render PostgreSQL or Redis add-on.
-
----
-
-## File Structure
-```
-axiom-viewbot/
-├── bot.py               # Main self-bot, all command handlers
-├── view_engine.py       # View generation loop, proxy cycling
-├── proxy_manager.py     # Proxy CRUD, validation, failure tracking
-├── config.py            # Environment variable bindings
-├── generate_session.py  # One-time local session string generator
-├── render.yaml          # Render deployment config
-├── requirements.txt     # Python dependencies
-└── README.md
+1.2.3.4 1080 socks5
+1.2.3.4 1080 socks5 username password
+1.2.3.4 8080 http
 ```
