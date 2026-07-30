@@ -8,7 +8,8 @@ from config import Config
 from states import ProxyFlow
 from keyboards import owner_panel, cancel_keyboard, back_to_menu
 from proxy_manager import (
-    add_proxy, remove_proxy, list_proxies,
+    add_proxy, add_proxy_from_link, is_mtproto_link,
+    remove_proxy, list_proxies,
     get_active_proxies, reset_all, validate_proxy,
 )
 from job_queue import get_all_jobs, clear_done_jobs
@@ -27,7 +28,9 @@ async def proxy_add_entry(callback: CallbackQuery, state: FSMContext):
     await state.set_state(ProxyFlow.waiting_add)
     await callback.message.edit_text(
         "➕ **افزودن پروکسی**\n\n"
-        "فرمت:\n"
+        "**روش ۱ — لینک MTProto:**\n"
+        "`https://t.me/proxy?server=...&port=...&secret=...`\n\n"
+        "**روش ۲ — دستی:**\n"
         "`host port type [username password]`\n\n"
         "مثال‌ها:\n"
         "`1.2.3.4 1080 socks5`\n"
@@ -41,7 +44,35 @@ async def proxy_add_entry(callback: CallbackQuery, state: FSMContext):
 async def proxy_add_receive(message: Message, state: FSMContext):
     if not _is_owner(message.from_user.id):
         return
-    parts = message.text.strip().split()
+
+    text = message.text.strip()
+
+    # ── MTProto link path ─────────────────────────────────────────────────────
+    if is_mtproto_link(text):
+        result = add_proxy_from_link(text)
+        await state.clear()
+        if result is None:
+            await message.answer(
+                "❌ لینک MTProto نامعتبر است.\n"
+                "فرمت صحیح:\n`https://t.me/proxy?server=...&port=...&secret=...`",
+                reply_markup=cancel_keyboard(), parse_mode="Markdown"
+            )
+            return
+        if result is False:
+            await message.answer(
+                f"⚠️ این پروکسی قبلاً ثبت شده.",
+                reply_markup=owner_panel(), parse_mode="Markdown"
+            )
+            return
+        await message.answer(
+            f"✅ پروکسی MTProto اضافه شد:\n"
+            f"`{result['host']}:{result['port']}` (mtproto)",
+            reply_markup=owner_panel(), parse_mode="Markdown"
+        )
+        return
+
+    # ── Manual SOCKS/HTTP path ────────────────────────────────────────────────
+    parts = text.split()
     if len(parts) < 3:
         await message.answer("⚠️ فرمت: `host port type`", reply_markup=cancel_keyboard(), parse_mode="Markdown")
         return
