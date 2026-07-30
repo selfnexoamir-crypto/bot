@@ -1,0 +1,21 @@
+services:
+  - type: worker
+    name: axiom-viewbot
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python bot.py
+    envVars:
+      - key: TELEGRAM_API_ID
+        sync: false
+      - key: TELEGRAM_API_HASH
+        sync: false
+      - key: TELEGRAM_SESSION_STRING
+        sync: false
+      - key: ADMIN_USER_ID
+        sync: false
+      - key: VIEW_DELAY_SECONDS
+        value: "60"
+      - key: PROXY_TIMEOUT
+        value: "10"
+      - key: MAX_PROXIES
+        value: "50"
