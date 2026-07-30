@@ -2,7 +2,7 @@ services:
   - type: worker
     name: axiom-viewbot
     env: python
-    buildCommand: pip install -r requirements.txt
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
     startCommand: python main.py
     envVars:
       - key: BOT_TOKEN
@@ -21,3 +21,5 @@ services:
         value: "20"
       - key: PROXY_TIMEOUT
         value: "10"
+      - key: PYTHON_VERSION
+        value: "3.11.9"
