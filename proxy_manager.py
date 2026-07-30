@@ -80,3 +80,6 @@ async def validate_proxy(proxy: dict, timeout: int = 10) -> bool:
                 return resp.status == 200
     except Exception:
         return False
+
+# Alias: previous name before rename — kept for backward compat with stale deploy caches
+reset_proxy_failures = reset_all
