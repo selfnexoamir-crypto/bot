@@ -12,7 +12,20 @@ def _load() -> list[dict]:
     if not os.path.exists(PROXY_STORE_PATH):
         return []
     with open(PROXY_STORE_PATH, "r") as f:
-        return json.load(f)
+        proxies = json.load(f)
+    # Migrate: normalize any base64url secrets stored from old parse_mtproto_link
+    dirty = False
+    for p in proxies:
+        if p.get("type") == "mtproto" and p.get("secret"):
+            import re as _re
+            if not _re.fullmatch(r"[0-9a-f]+", p["secret"]):
+                fixed = _normalize_secret(p["secret"])
+                if fixed:
+                    p["secret"] = fixed
+                    dirty = True
+    if dirty:
+        _save(proxies)
+    return proxies
 
 
 def _save(proxies: list[dict]) -> None:
@@ -63,16 +76,16 @@ def parse_mtproto_link(link: str) -> Optional[dict]:
     if not port_str.isdigit():
         return None
 
-    # Validate secret: hex string, optionally prefixed with dd or ee
-    clean_secret = secret.lower()
-    if not re.fullmatch(r"[0-9a-f]+", clean_secret):
+    # Normalize secret — t.me/proxy encodes as base64url, not hex
+    normalized = _normalize_secret(secret)
+    if normalized is None:
         return None
 
     return {
         "host": server,
         "port": int(port_str),
         "type": "mtproto",
-        "secret": clean_secret,
+        "secret": normalized,
         "username": None,
         "password": None,
         "active": True,
@@ -156,6 +169,40 @@ def reset_all() -> None:
         p["fail_count"] = 0
         p["active"] = True
     _save(proxies)
+
+
+def _normalize_secret(secret: str) -> Optional[str]:
+    """
+    MTProto secrets in t.me/proxy links are base64url encoded.
+    Telethon needs raw bytes — we store as hex string.
+
+    Handles:
+      - Pure hex (old manual entries): "ee1603..."
+      - base64url with or without padding: "7hYDB..."
+    """
+    import base64 as _b64
+    secret = secret.strip().replace("%3D", "").replace("%3d", "")
+
+    # Pure hex check
+    if re.fullmatch(r"[0-9a-fA-F]+", secret):
+        return secret.lower()
+
+    # base64url (Telegram's actual format in t.me links)
+    padded = secret + "=" * (-len(secret) % 4)
+    try:
+        decoded = _b64.urlsafe_b64decode(padded)
+        return decoded.hex()
+    except Exception:
+        pass
+
+    # standard base64 fallback
+    try:
+        decoded = _b64.b64decode(padded)
+        return decoded.hex()
+    except Exception:
+        pass
+
+    return None  # unparseable
 
 
 # ── Telethon integration ──────────────────────────────────────────────────────
