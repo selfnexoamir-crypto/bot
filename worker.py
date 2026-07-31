@@ -34,30 +34,49 @@ def parse_post_link(link: str) -> tuple[str, int]:
     return parts[-2], int(parts[-1])
 
 # ── Single open with one proxy ────────────────────────────────────────────────
-async def _open_with_proxy(proxy: dict, channel: str, msg_id: int) -> bool:
+async def _open_with_proxy(
+    proxy: dict, channel: str, msg_id: int,
+    entity_cache: dict,
+) -> bool:
+    """
+    Open one view via the given proxy.
+
+    entity_cache: shared dict so we resolve the channel entity once
+    per job, not once per proxy call — avoids redundant getEntity RTTs.
+    """
+    proxy_kwargs = proxy_to_telethon(proxy)
     client = TelegramClient(
         StringSession(Config.SESSION_STRING),
         Config.API_ID,
         Config.API_HASH,
-        proxy=proxy_to_telethon(proxy),
-        connection_retries=2,
-        timeout=15,
+        connection_retries=1,
+        timeout=Config.PROXY_TIMEOUT,
+        **proxy_kwargs,
     )
     try:
-        await client.connect()
+        await asyncio.wait_for(client.connect(), timeout=Config.PROXY_TIMEOUT)
         if not await client.is_user_authorized():
-            logger.error("Session string expired.")
+            logger.error("Session string expired or invalid.")
             return False
-        entity = await client.get_entity(channel)
+
+        # Resolve entity once, reuse across calls
+        if channel not in entity_cache:
+            entity_cache[channel] = await client.get_entity(channel)
+        entity = entity_cache[channel]
+
         await client(GetMessagesViewsRequest(
             peer=entity,
             id=[msg_id],
-            increment=True
+            increment=True,
         ))
-        logger.info(f"View sent via {proxy['host']}:{proxy['port']}")
+        logger.info(f"✅ View sent via {proxy['host']}:{proxy['port']}")
         return True
+    except asyncio.TimeoutError:
+        logger.warning(f"⏱ Timeout: {proxy['host']}:{proxy['port']}")
+        mark_failed(proxy["host"], proxy["port"])
+        return False
     except Exception as e:
-        logger.warning(f"Proxy {proxy['host']}:{proxy['port']} failed: {e}")
+        logger.warning(f"❌ {proxy['host']}:{proxy['port']} — {type(e).__name__}: {e}")
         mark_failed(proxy["host"], proxy["port"])
         return False
     finally:
@@ -97,10 +116,11 @@ async def _execute_job(job: dict) -> None:
     views_done = 0
     success = 0
     failed = 0
+    entity_cache: dict = {}
 
     for i in range(opens_needed):
         proxy = proxies[i % available]
-        ok = await _open_with_proxy(proxy, channel, msg_id)
+        ok = await _open_with_proxy(proxy, channel, msg_id, entity_cache)
         if ok:
             success += 1
             views_done += 1

@@ -160,25 +160,33 @@ def reset_all() -> None:
 
 # ── Telethon integration ──────────────────────────────────────────────────────
 
-def proxy_to_telethon(proxy: dict) -> tuple:
+def proxy_to_telethon(proxy: dict) -> dict:
     """
-    Convert a stored proxy dict to the tuple Telethon expects.
+    Convert a stored proxy dict to kwargs for TelegramClient.
 
-    SOCKS5/SOCKS4/HTTP  → (socks.SOCKS5, host, port, True, user, pass)
-    MTProto             → (ConnectionTcpMTProxyRandomizedIntermediate, host, port, secret_bytes)
+    Returns a dict with keys that map directly to TelegramClient constructor:
+      SOCKS5/SOCKS4/HTTP → {"proxy": (socks.TYPE, host, port, True, user, pass)}
+      MTProto            → {"connection": ConnectionTcpMTProxyRandomizedIntermediate,
+                            "proxy": (host, port, secret_bytes)}
+    Unpack with **proxy_to_telethon(proxy) when constructing the client.
     """
     if proxy["type"] == "mtproto":
         from telethon.network.connection import ConnectionTcpMTProxyRandomizedIntermediate
         secret_bytes = bytes.fromhex(proxy["secret"])
-        return (ConnectionTcpMTProxyRandomizedIntermediate, proxy["host"], proxy["port"], secret_bytes)
+        return {
+            "connection": ConnectionTcpMTProxyRandomizedIntermediate,
+            "proxy": (proxy["host"], proxy["port"], secret_bytes),
+        }
 
     import socks
     type_map = {"socks5": socks.SOCKS5, "socks4": socks.SOCKS4, "http": socks.HTTP}
-    return (
-        type_map.get(proxy["type"], socks.SOCKS5),
-        proxy["host"], proxy["port"], True,
-        proxy.get("username"), proxy.get("password"),
-    )
+    return {
+        "proxy": (
+            type_map.get(proxy["type"], socks.SOCKS5),
+            proxy["host"], proxy["port"], True,
+            proxy.get("username"), proxy.get("password"),
+        )
+    }
 
 
 async def validate_proxy(proxy: dict, timeout: int = 10) -> bool:
