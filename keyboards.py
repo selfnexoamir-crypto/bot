@@ -26,14 +26,25 @@ def cancel_keyboard() -> InlineKeyboardMarkup:
     ])
 
 def owner_panel() -> InlineKeyboardMarkup:
+    """Overrides existing — now includes account management buttons."""
     return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="👤 مدیریت اکانت‌ها", callback_data="account:menu")],
         [InlineKeyboardButton(text="➕ افزودن پروکسی", callback_data="proxy:add")],
         [InlineKeyboardButton(text="➖ حذف پروکسی", callback_data="proxy:remove")],
         [InlineKeyboardButton(text="📋 لیست پروکسی‌ها", callback_data="proxy:list")],
         [InlineKeyboardButton(text="🧪 تست پروکسی‌ها", callback_data="proxy:validate")],
-        [InlineKeyboardButton(text="🔄 ریست همه", callback_data="proxy:reset")],
+        [InlineKeyboardButton(text="🔄 ریست پروکسی‌ها", callback_data="proxy:reset")],
         [InlineKeyboardButton(text="📊 وضعیت جاب‌ها", callback_data="admin:jobs")],
         [InlineKeyboardButton(text="🗑 پاک کردن جاب‌های قدیمی", callback_data="admin:clearjobs")],
+    ])
+
+def account_menu_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="➕ افزودن اکانت", callback_data="account:add")],
+        [InlineKeyboardButton(text="➖ حذف اکانت", callback_data="account:remove")],
+        [InlineKeyboardButton(text="📋 لیست اکانت‌ها", callback_data="account:list")],
+        [InlineKeyboardButton(text="🔄 ریست اکانت‌ها", callback_data="account:reset")],
+        [InlineKeyboardButton(text="🔙 بازگشت", callback_data="owner:panel")],
     ])
 
 def back_to_menu() -> InlineKeyboardMarkup:

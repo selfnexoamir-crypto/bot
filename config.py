@@ -7,7 +7,7 @@ class Config:
     # Telethon self-bot
     API_ID: int = int(os.environ["TELEGRAM_API_ID"])
     API_HASH: str = os.environ["TELEGRAM_API_HASH"]
-    SESSION_STRING: str = os.environ["TELEGRAM_SESSION_STRING"]
+    SESSION_STRING: str = os.environ.get("TELEGRAM_SESSION_STRING", "")
 
     # Owner
     OWNER_ID: int = int(os.environ["OWNER_USER_ID"])

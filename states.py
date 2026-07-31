@@ -12,3 +12,9 @@ class ReactionFlow(StatesGroup):
 class ProxyFlow(StatesGroup):
     waiting_add    = State()
     waiting_remove = State()
+
+class AccountFlow(StatesGroup):
+    waiting_phone   = State()   # مالک شماره میده
+    waiting_code    = State()   # کد OTP
+    waiting_2fa     = State()   # پسورد دو مرحله‌ای (اختیاری)
+    waiting_remove  = State()   # حذف اکانت
